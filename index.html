@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>FPS Minecraft Shooter</title>
+<title>FPS Minecraft Shooter FIX</title>
 
 <style>
 body { margin:0; overflow:hidden; background:black; }
@@ -40,9 +40,15 @@ body { margin:0; overflow:hidden; background:black; }
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87CEEB);
 
-// CAMERA
+// CAMERA RIG (wichtig FIX)
 const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 1000);
-camera.position.set(0, 2, 5);
+
+const cameraHolder = new THREE.Object3D();
+cameraHolder.add(camera);
+scene.add(cameraHolder);
+
+camera.position.set(0, 1.6, 0);
+cameraHolder.position.set(0, 2, 5);
 
 // RENDERER
 const renderer = new THREE.WebGLRenderer({antialias:true});
@@ -53,7 +59,7 @@ document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff, 1));
 
 // =====================
-// GRÜNER BODEN (MINECRAFT STYLE)
+// GRUND
 // =====================
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(200,200),
@@ -63,7 +69,7 @@ ground.rotation.x = -Math.PI/2;
 scene.add(ground);
 
 // =====================
-// PISTOLE (SIMPLE FPS MODEL)
+// GUN
 // =====================
 const gun = new THREE.Group();
 
@@ -81,26 +87,18 @@ grip.position.y = -0.25;
 gun.add(body);
 gun.add(grip);
 
-// Kamera -> Waffe in Hand
 camera.add(gun);
-scene.add(camera);
-
-// FPS Position (wichtig!)
 gun.position.set(0.4,-0.3,-0.7);
 
 // =====================
-// MOVEMENT (MINECRAFT STYLE)
+// CONTROLS
 // =====================
-let velocityY = 0;
-let isGrounded = true;
-
 const keys = {};
-
 document.addEventListener("keydown",e=>keys[e.code]=true);
 document.addEventListener("keyup",e=>keys[e.code]=false);
 
 // =====================
-// MOUSE LOOK
+// MOUSE LOOK FIX
 // =====================
 let yaw = 0;
 let pitch = 0;
@@ -118,15 +116,24 @@ document.addEventListener("mousemove",(e)=>{
 
   pitch = Math.max(-1.5, Math.min(1.5, pitch));
 
-  camera.rotation.set(pitch, yaw, 0);
+  cameraHolder.rotation.y = yaw;
+  camera.rotation.x = pitch;
 });
 
 // =====================
-// GRAVITY + JUMP
+// MOVEMENT
 // =====================
 const speed = 0.12;
-const gravity = 0.01;
-const jumpPower = 0.2;
+let velocityY = 0;
+let grounded = true;
+
+function getForward(){
+  return new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+}
+
+function getRight(){
+  return new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,1,0), yaw);
+}
 
 // =====================
 // LOOP
@@ -134,36 +141,44 @@ const jumpPower = 0.2;
 function animate(){
   requestAnimationFrame(animate);
 
-  const forward = new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
-  const right = new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+  const forward = getForward();
+  const right = getRight();
 
-  // WASD
-  if(keys["KeyW"]) camera.position.add(forward.clone().multiplyScalar(speed));
-  if(keys["KeyS"]) camera.position.add(forward.clone().multiplyScalar(-speed));
-  if(keys["KeyA"]) camera.position.add(right.clone().multiplyScalar(-speed));
-  if(keys["KeyD"]) camera.position.add(right.clone().multiplyScalar(speed));
+  if(keys["KeyW"]) cameraHolder.position.add(forward.clone().multiplyScalar(speed));
+  if(keys["KeyS"]) cameraHolder.position.add(forward.clone().multiplyScalar(-speed));
+  if(keys["KeyA"]) cameraHolder.position.add(right.clone().multiplyScalar(-speed));
+  if(keys["KeyD"]) cameraHolder.position.add(right.clone().multiplyScalar(speed));
 
-  // JUMP
-  if(keys["Space"] && isGrounded){
-    velocityY = jumpPower;
-    isGrounded = false;
+  // jump
+  if(keys["Space"] && grounded){
+    velocityY = 0.2;
+    grounded = false;
   }
 
-  // GRAVITY
-  velocityY -= gravity;
-  camera.position.y += velocityY;
+  // gravity
+  velocityY -= 0.01;
+  cameraHolder.position.y += velocityY;
 
-  // FLOOR COLLISION
-  if(camera.position.y < 2){
-    camera.position.y = 2;
+  // ground collision
+  if(cameraHolder.position.y < 2){
+    cameraHolder.position.y = 2;
     velocityY = 0;
-    isGrounded = true;
+    grounded = true;
   }
 
   renderer.render(scene,camera);
 }
 
 animate();
+
+// =====================
+// RESIZE FIX
+// =====================
+window.addEventListener("resize",()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
 
 </script>
 
